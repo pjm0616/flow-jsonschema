@@ -103,9 +103,11 @@ function parseDesc(desc) {
         let name = desc.id.name;
         let params = desc.typeParameters.params.map(parseDesc);
         if (name === 'Array') {
+            assert(params.length === 1);
+            let res = params[0];
             return {
                 type: 'array',
-                items: params,
+                items: res,
             };
         } else if (name === '$Exact') {
             assert(params.length === 1);
