@@ -93,7 +93,7 @@ function parseDesc(desc) {
             res.properties[key] = value;
         }
         if (desc.exact) {
-            res.required = Object.keys(res.properties);
+            res.required = Object.keys(res.properties).sort();
         }
         return res;
 
@@ -112,7 +112,7 @@ function parseDesc(desc) {
         } else if (name === '$Exact') {
             assert(params.length === 1);
             let res = params[0];
-            res.required = Object.keys(res.properties);
+            res.required = Object.keys(res.properties).sort();
             return res;
         } else {
             throw new Error('unsupported type ' + name);
@@ -158,7 +158,7 @@ function makeSchema(path) {
 
 function makeValidatorSrc(srcPath, importName) {
     let types = makeSchema(srcPath);
-    let typeNames = Object.keys(types);
+    let typeNames = Object.keys(types).sort();
     if (typeNames.length === 0) {
         throw new Error('no types to process');
     }
