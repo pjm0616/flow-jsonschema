@@ -78,6 +78,7 @@ function parseDesc(desc) {
         let res = {
             type: 'object',
             properties: {},
+            required: [],
         };
         for (let prop of desc.properties) {
             assert(prop.type === 'ObjectTypeProperty');
@@ -86,10 +87,11 @@ function parseDesc(desc) {
             let key = prop.key.name;
             let value = parseDesc(prop.value);
             res.properties[key] = value;
+            if (prop.optional !== true) {
+                res.required.push(key);
+            }
         }
-        if (desc.exact) {
-            res.required = Object.keys(res.properties).sort();
-        }
+        res.required.sort();
         return res;
 
     case 'GenericTypeAnnotation':
@@ -107,7 +109,6 @@ function parseDesc(desc) {
         } else if (name === '$Exact') {
             assert(params.length === 1);
             let res = params[0];
-            res.required = Object.keys(res.properties).sort();
             return res;
         } else {
             throw new Error('unsupported type ' + name);
