@@ -16,21 +16,21 @@ function writeValidatorSrc(srcPath, importName) {
 }
 
 function main() {
-	switch (process.argv.length) {
-	case 3: {
-		let srcPath = process.argv[2];
-		return writeValidatorSrc(srcPath, srcPath);
-	}
-	case 4: {
-		let srcPath = process.argv[2];
-		let importName = process.argv[3];
-		return writeValidatorSrc(srcPath, importName);
-	}
-	default: {
-		console.log(`Usage: ${process.argv.slice(0, 2).join(' ')} <path to js>`);
-		console.log(`Usage: ${process.argv.slice(0, 2).join(' ')} <path to js> <js import name>`);
-		return process.exit(1);
-	}
-	}
+    switch (process.argv.length) {
+    case 3: {
+        let srcPath = process.argv[2];
+        return writeValidatorSrc(srcPath, srcPath);
+    }
+    case 4: {
+        let srcPath = process.argv[2];
+        let importName = process.argv[3];
+        return writeValidatorSrc(srcPath, importName);
+    }
+    default: {
+        console.log(`Usage: ${process.argv.slice(0, 2).join(' ')} <path to js>`);
+        console.log(`Usage: ${process.argv.slice(0, 2).join(' ')} <path to js> <js import name>`);
+        return process.exit(1);
+    }
+    }
 }
 main();
