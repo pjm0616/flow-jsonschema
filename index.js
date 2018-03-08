@@ -55,13 +55,8 @@ function parseDesc(desc) {
         return {
             type: 'boolean',
         };
-    case 'VoidTypeAnnotation': // undefined
-        throw new UnsupportedTypeError('undefined types are not supported');
-        /*
-        return {
-            type: 'null', // there is no undefined type in jsonschema.
-        };
-        */
+    case 'VoidTypeAnnotation':
+        throw new UnsupportedTypeError('undefined types not supported');
 
     case 'NullableTypeAnnotation':
         return {
