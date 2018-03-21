@@ -96,22 +96,22 @@ function parseDesc(desc) {
 
     case 'GenericTypeAnnotation':
         assert(desc.id.type === 'Identifier');
-        assert(desc.typeParameters.type === 'TypeParameterInstantiation');
         let name = desc.id.name;
-        let params = desc.typeParameters.params.map(parseDesc);
         if (name === 'Array') {
-            assert(params.length === 1);
-            let res = params[0];
+            assert(desc.typeParameters.type === 'TypeParameterInstantiation');
+            assert(desc.typeParameters.params.length === 1);
+            let res = parseDesc(desc.typeParameters.params[0]);
             return {
                 type: 'array',
                 items: res,
             };
         } else if (name === '$Exact') {
-            assert(params.length === 1);
-            let res = params[0];
+            assert(desc.typeParameters.type === 'TypeParameterInstantiation');
+            assert(desc.typeParameters.params.length === 1);
+            let res = parseDesc(desc.typeParameters.params[0]);
             return res;
         } else {
-            throw new Error('unsupported type ' + name);
+            throw new UnsupportedTypeError('unsupported type: ' + name);
         }
 
     case 'UnionTypeAnnotation':
@@ -141,6 +141,7 @@ function makeSchema(path) {
                     result[name] = schema;
                 } catch (exc) {
                     if (exc instanceof UnsupportedTypeError) {
+                        console.warn('Skipping type ' + name + ': ' + exc.message);
                     } else {
                         throw exc;
                     }
