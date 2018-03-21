@@ -73,7 +73,7 @@ function parseDesc(desc) {
             throw new UnsupportedTypeError('indexers not supported');
         }
         if (desc.callProperties.length !== 0) {
-            throw new UnsupportedTypeError("call properties not supported");
+            throw new UnsupportedTypeError('call properties not supported');
         }
         let res = {
             type: 'object',
