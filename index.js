@@ -94,6 +94,12 @@ function parseDesc(desc) {
         res.required.sort();
         return res;
 
+    case 'TupleTypeAnnotation':
+        return {
+            type: 'array',
+            items: desc.types.map(parseDesc),
+        };
+
     case 'GenericTypeAnnotation':
         assert(desc.id.type === 'Identifier');
         let name = desc.id.name;
