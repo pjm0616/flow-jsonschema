@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "generate": "./node_modules/.bin/flow-jsonschema ./types.js",
+    "generate": "./node_modules/.bin/flow-jsonschema ./types.js ./types.validator.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

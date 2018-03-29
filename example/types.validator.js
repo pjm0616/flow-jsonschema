@@ -8,10 +8,8 @@ const Ajv = require('ajv');
 const ajv = new Ajv();
 
 /*::
-import type {
-    A,
-    B
-} from "./types.js";
+export type A = $Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>;
+export type B = $Exact<{arr: Array<$Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>>, c: string | number, d: boolean | null, e: $Exact<{a: 1, b: string}> | $Exact<{a: 2, b: number}>, tuple: [string, number, 1 | 2]}>;
 */
 
 let g_validators = {};
