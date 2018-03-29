@@ -9,8 +9,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "ajv": "^6.2.1",
-    "flow-bin": "^0.66.0",
-    "flow-parser": "^0.66.0"
+    "ajv": "^6.4.0",
+    "flow-bin": "^0.68.0",
+    "flow-parser": "^0.68.0"
   }
 }
