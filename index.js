@@ -132,7 +132,9 @@ function parseDesc(desc) {
 }
 
 function makeSchema(path) {
-    let result = {};
+    let jsonSchema = {};
+    let flowSource = {};
+
     let typedefsrc = child_process.execFileSync('flow', ['gen-flow-files', '--quiet', path], {encoding: 'utf-8'});
     let ast = flowParser.parse(typedefsrc);
     assert(ast.type === 'Program');
@@ -144,7 +146,8 @@ function makeSchema(path) {
                 let desc = decl.right;
                 try {
                     let schema = parseDesc(desc);
-                    result[name] = schema;
+                    jsonSchema[name] = schema;
+                    flowSource[name] = typedefsrc.slice(child.range[0], child.range[1]);
                 } catch (exc) {
                     if (exc instanceof UnsupportedTypeError) {
                         console.warn('Skipping type ' + name + ': ' + exc.message);
@@ -155,16 +158,19 @@ function makeSchema(path) {
             }
         }
     }
-    return result;
+
+    return [jsonSchema, flowSource];
 }
 
 
-function makeValidatorSrc(srcPath, importName) {
-    let types = makeSchema(srcPath);
+function makeValidatorSrc(srcPath) {
+    let [types, srcs] = makeSchema(srcPath);
     let typeNames = Object.keys(types).sort();
     if (typeNames.length === 0) {
         throw new Error('no types to process');
     }
+
+    let concatFlowDefsSrc = typeNames.map(name => srcs[name]).join('\n');
 
     let src = [];
     src.push(`//@flow
@@ -177,9 +183,7 @@ const Ajv = require('ajv');
 const ajv = new Ajv();
 
 /*::
-import type {
-${typeNames.map(s => '    ' + s).join(',\n')}
-} from ${JSON.stringify(importName)};
+${concatFlowDefsSrc}
 */
 
 let g_validators = {};
