@@ -103,6 +103,9 @@ function parseDesc(desc) {
                 res.required.push(key);
             }
         }
+        if (desc.exact) {
+            res.additionalProperties = false;
+        }
         res.required.sort();
         return res;
 
@@ -127,6 +130,9 @@ function parseDesc(desc) {
             assert(desc.typeParameters.type === 'TypeParameterInstantiation');
             assert(desc.typeParameters.params.length === 1);
             let res = parseDesc(desc.typeParameters.params[0]);
+            if (res.type === 'object') {
+                res.additionalProperties = false;
+            }
             return res;
         } else {
             throw new UnsupportedTypeError('unsupported type: ' + name);
