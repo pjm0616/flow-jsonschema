@@ -85,3 +85,4 @@ console.log(validator.checkB(b) != null); // ok
 console.log(validator.checkB(b2) != null); // error
 console.log(validator.checkB(b3) != null); // error
 console.log(validator.checkB(b4) != null); // error
+validator.assertB(b4); // throws

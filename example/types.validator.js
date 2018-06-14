@@ -10,13 +10,32 @@ const ajv = new Ajv();
 /*::
 export type A = $Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>;
 export type B = $Exact<{arr: Array<$Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>>, c: string | number, d: boolean | null, e: $Exact<{a: 1, b: string}> | $Exact<{a: 2, b: number}>, f: {[zz: string]: number | string}, tuple: [string, number, 1 | 2]}>;
+
+export type ValidationErrorDesc = {|
+    keyword: string,
+    dataPath: string,
+    schemaPath: string,
+    params: Object,
+    message: string,
+|};
 */
+
+class ValidationError extends Error {
+    /*::
+    typeName: string;
+    errors: ValidationErrorDesc[];
+    */
+    constructor(typeName/*: string*/, errors/*: ValidationErrorDesc[]*/) {
+        super(errors.length > 0 ? (typeName + errors[0].dataPath + ': ' + errors[0].message) : '(no errors)');
+        this.typeName = typeName;
+        this.errors = errors;
+    }
+}
 
 let g_validators = {};
 
 // Checks whether `val` is a valid A.
-// @returns `val` as is if it's a valid A, null if `val` is not valid.
-module.exports["checkA"] = function checkA(val/*: A*/)/*: null | A*/ {
+function checkA(val/*: A*/)/*: boolean*/ {
     let validator = g_validators["A"];
     if (validator == null) {
         let schema = {
@@ -89,18 +108,31 @@ module.exports["checkA"] = function checkA(val/*: A*/)/*: null | A*/ {
         validator = ajv.compile(schema);
         g_validators["A"] = validator;
     }
-    let ret = validator(val);
+    let ret/*: boolean*/ = validator(val);
+    assert(typeof ret === 'boolean');
+    let errors/*: ?Array<ValidationErrorDesc>*/ = (validator/*: any*/).errors;
+    (checkA/*: any*/).errors = errors;
+    return ret;
+};
+
+// Checks whether `val` is a valid A.
+// @returns `val` as is if it's a valid A, throws if not.
+function assertA(val/*: A*/)/*: A*/ {
+    let ret = checkA(val);
     assert(typeof ret === 'boolean');
     if (ret) {
         return val;
     } else {
-        return null;
+        let errors/*: ?Array<ValidationErrorDesc>*/ = (checkA/*: any*/).errors;
+        if (errors == null || errors.length === 0) {
+            throw new Error('json validation failed');
+        }
+        throw new ValidationError("A", errors);
     }
 };
 
 // Checks whether `val` is a valid B.
-// @returns `val` as is if it's a valid B, null if `val` is not valid.
-module.exports["checkB"] = function checkB(val/*: B*/)/*: null | B*/ {
+function checkB(val/*: B*/)/*: boolean*/ {
     let validator = g_validators["B"];
     if (validator == null) {
         let schema = {
@@ -292,11 +324,33 @@ module.exports["checkB"] = function checkB(val/*: B*/)/*: null | B*/ {
         validator = ajv.compile(schema);
         g_validators["B"] = validator;
     }
-    let ret = validator(val);
+    let ret/*: boolean*/ = validator(val);
+    assert(typeof ret === 'boolean');
+    let errors/*: ?Array<ValidationErrorDesc>*/ = (validator/*: any*/).errors;
+    (checkB/*: any*/).errors = errors;
+    return ret;
+};
+
+// Checks whether `val` is a valid B.
+// @returns `val` as is if it's a valid B, throws if not.
+function assertB(val/*: B*/)/*: B*/ {
+    let ret = checkB(val);
     assert(typeof ret === 'boolean');
     if (ret) {
         return val;
     } else {
-        return null;
+        let errors/*: ?Array<ValidationErrorDesc>*/ = (checkB/*: any*/).errors;
+        if (errors == null || errors.length === 0) {
+            throw new Error('json validation failed');
+        }
+        throw new ValidationError("B", errors);
     }
+};
+
+module.exports = {
+    ValidationError,
+    checkA,
+    assertA,
+    checkB,
+    assertB,
 };
