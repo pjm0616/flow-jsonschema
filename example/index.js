@@ -27,6 +27,10 @@ let b/*: B*/ = {
         a: 1,
         b: '3',
     },
+    f: {
+        'x': 3,
+        'y': 'z',
+    },
 };
 
 // b2.tuple[3] is invalid
@@ -38,6 +42,10 @@ let b2/*: Object*/ = {
     e: {
         a: 1,
         b: '3',
+    },
+    f: {
+        'x': 3,
+        'y': 'z',
     },
 };
 
@@ -51,8 +59,29 @@ let b3/*: Object*/ = {
         a: 2,
         b: '3',
     },
+    f: {
+        'x': 3,
+        'y': 'z',
+    },
+};
+
+// b4.f.x is invalid
+let b4/*: Object*/ = {
+    arr: [a, a],
+    tuple: ['a', 2, 2],
+    c: 33,
+    d: null,
+    e: {
+        a: 1,
+        b: '3',
+    },
+    f: {
+        'x': true,
+        'y': 'z',
+    },
 };
 
 console.log(validator.checkB(b) != null); // ok
 console.log(validator.checkB(b2) != null); // error
 console.log(validator.checkB(b3) != null); // error
+console.log(validator.checkB(b4) != null); // error

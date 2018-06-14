@@ -9,7 +9,7 @@ const ajv = new Ajv();
 
 /*::
 export type A = $Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>;
-export type B = $Exact<{arr: Array<$Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>>, c: string | number, d: boolean | null, e: $Exact<{a: 1, b: string}> | $Exact<{a: 2, b: number}>, tuple: [string, number, 1 | 2]}>;
+export type B = $Exact<{arr: Array<$Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>>, c: string | number, d: boolean | null, e: $Exact<{a: 1, b: string}> | $Exact<{a: 2, b: number}>, f: {[zz: string]: number | string}, tuple: [string, number, 1 | 2]}>;
 */
 
 let g_validators = {};
@@ -236,6 +236,22 @@ module.exports["checkB"] = function checkB(val/*: B*/)/*: null | B*/ {
                         }
                     ]
                 },
+                "f": {
+                    "type": "object",
+                    "patternProperties": {
+                        ".*": {
+                            "anyOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "tuple": {
                     "type": "array",
                     "items": [
@@ -269,6 +285,7 @@ module.exports["checkB"] = function checkB(val/*: B*/)/*: null | B*/ {
                 "c",
                 "d",
                 "e",
+                "f",
                 "tuple"
             ]
         };

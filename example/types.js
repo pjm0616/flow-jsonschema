@@ -26,6 +26,7 @@ export type B = {|
         a: 2,
         b: number,
     |},
+    f: {[zz:string]: number|string},
 |};
 
 */
