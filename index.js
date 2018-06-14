@@ -196,34 +196,45 @@ const ajv = new Ajv();
 
 /*::
 ${concatFlowDefsSrc}
+
+export type ValidationErrorDesc = {|
+    keyword: string,
+    dataPath: string,
+    schemaPath: string,
+    params: Object,
+    message: string,
+|};
 */
 
 let g_validators = {};
 `);
 
     for (let name of typeNames) {
-        let funcName = 'check' + name;
         let nameJson = JSON.stringify(name);
         let schemaJson = JSON.stringify(types[name], null, 4);
+        let checkFuncName = 'check' + name;
         src.push(`// Checks whether \`val\` is a valid ${name}.
-// @returns \`val\` as is if it's a valid ${name}, null if \`val\` is not valid.
-module.exports[${JSON.stringify(funcName)}] = function ${funcName}(val/*: ${name}*/)/*: null | ${name}*/ {
+function ${checkFuncName}(val/*: ${name}*/)/*: boolean*/ {
     let validator = g_validators[${nameJson}];
     if (validator == null) {
         let schema = ${schemaJson.split('\n').map(line => '        ' + line).join('\n').slice(8)};
         validator = ajv.compile(schema);
         g_validators[${nameJson}] = validator;
     }
-    let ret = validator(val);
+    let ret/*: boolean*/ = validator(val);
     assert(typeof ret === 'boolean');
-    if (ret) {
-        return val;
-    } else {
-        return null;
-    }
+    let errors/*: ?Array<ValidationErrorDesc>*/ = (validator/*: any*/).errors;
+    (${checkFuncName}/*: any*/).errors = errors;
+    return ret;
 };
 `);
     }
+
+    src.push('module.exports = {');
+    for (let name of typeNames) {
+        src.push(`    ${'check' + name},`);
+    }
+    src.push('};');
 
     return src.join('\n');
 }
