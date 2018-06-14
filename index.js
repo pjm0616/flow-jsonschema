@@ -206,6 +206,18 @@ export type ValidationErrorDesc = {|
 |};
 */
 
+class ValidationError extends Error {
+    /*::
+    typeName: string;
+    errors: ValidationErrorDesc[];
+    */
+    constructor(typeName/*: string*/, errors/*: ValidationErrorDesc[]*/) {
+        super(errors.length > 0 ? (typeName + errors[0].dataPath + ': ' + errors[0].message) : '(no errors)');
+        this.typeName = typeName;
+        this.errors = errors;
+    }
+}
+
 let g_validators = {};
 `);
 
@@ -213,6 +225,7 @@ let g_validators = {};
         let nameJson = JSON.stringify(name);
         let schemaJson = JSON.stringify(types[name], null, 4);
         let checkFuncName = 'check' + name;
+        let assertFuncName = 'assert' + name;
         src.push(`// Checks whether \`val\` is a valid ${name}.
 function ${checkFuncName}(val/*: ${name}*/)/*: boolean*/ {
     let validator = g_validators[${nameJson}];
@@ -227,12 +240,30 @@ function ${checkFuncName}(val/*: ${name}*/)/*: boolean*/ {
     (${checkFuncName}/*: any*/).errors = errors;
     return ret;
 };
+
+// Checks whether \`val\` is a valid ${name}.
+// @returns \`val\` as is if it's a valid ${name}, throws if not.
+function ${assertFuncName}(val/*: ${name}*/)/*: ${name}*/ {
+    let ret = ${checkFuncName}(val);
+    assert(typeof ret === 'boolean');
+    if (ret) {
+        return val;
+    } else {
+        let errors/*: ?Array<ValidationErrorDesc>*/ = (${checkFuncName}/*: any*/).errors;
+        if (errors == null || errors.length === 0) {
+            throw new Error('json validation failed');
+        }
+        throw new ValidationError(${nameJson}, errors);
+    }
+};
 `);
     }
 
     src.push('module.exports = {');
+    src.push('    ValidationError,');
     for (let name of typeNames) {
         src.push(`    ${'check' + name},`);
+        src.push(`    ${'assert' + name},`);
     }
     src.push('};');
 
