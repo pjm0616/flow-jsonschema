@@ -103,7 +103,8 @@ function checkA(val/*: A*/)/*: boolean*/ {
                 "numNull",
                 "str",
                 "strLit"
-            ]
+            ],
+            "additionalProperties": false
         };
         validator = ajv.compile(schema);
         g_validators["A"] = validator;
@@ -205,7 +206,8 @@ function checkB(val/*: B*/)/*: boolean*/ {
                             "numNull",
                             "str",
                             "strLit"
-                        ]
+                        ],
+                        "additionalProperties": false
                     }
                 },
                 "c": {
@@ -246,7 +248,8 @@ function checkB(val/*: B*/)/*: boolean*/ {
                             "required": [
                                 "a",
                                 "b"
-                            ]
+                            ],
+                            "additionalProperties": false
                         },
                         {
                             "type": "object",
@@ -264,7 +267,8 @@ function checkB(val/*: B*/)/*: boolean*/ {
                             "required": [
                                 "a",
                                 "b"
-                            ]
+                            ],
+                            "additionalProperties": false
                         }
                     ]
                 },
@@ -319,7 +323,8 @@ function checkB(val/*: B*/)/*: boolean*/ {
                 "e",
                 "f",
                 "tuple"
-            ]
+            ],
+            "additionalProperties": false
         };
         validator = ajv.compile(schema);
         g_validators["B"] = validator;

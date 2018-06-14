@@ -81,8 +81,26 @@ let b4/*: Object*/ = {
     },
 };
 
-console.log(validator.checkB(b) != null); // ok
-console.log(validator.checkB(b2) != null); // error
-console.log(validator.checkB(b3) != null); // error
-console.log(validator.checkB(b4) != null); // error
+// has an additional property b5.zz.
+let b5/*: Object*/ = {
+    arr: [a, a],
+    tuple: ['a', 2, 2],
+    c: 33,
+    d: null,
+    e: {
+        a: 1,
+        b: '3',
+    },
+    f: {
+        'x': 3,
+        'y': 'z',
+    },
+    zz: 2,
+};
+
+console.log(validator.checkB(b)); // ok
+console.log(validator.checkB(b2)); // error
+console.log(validator.checkB(b3)); // error
+console.log(validator.checkB(b4)); // error
+console.log(validator.checkB(b5)); // error
 validator.assertB(b4); // throws
