@@ -69,11 +69,23 @@ function parseDesc(desc) {
         };
 
     case 'ObjectTypeAnnotation':
-        if (desc.indexers.length !== 0) {
-            throw new UnsupportedTypeError('indexers not supported');
-        }
         if (desc.callProperties.length !== 0) {
             throw new UnsupportedTypeError('call properties not supported');
+        }
+        if (desc.indexers.length !== 0) {
+            if (desc.properties.length > 0) {
+                throw new UnsupportedTypeError('objects with both static properties and indexed properties are not supported');
+            }
+            // TODO: keyType validation is not supported yet.
+            //let keyType = parseDesc(desc.indexers[0].key);
+            let valueType = parseDesc(desc.indexers[0].value);
+            return {
+                type: 'object',
+                patternProperties: {
+                    '.*': valueType,
+                },
+                additionalProperties: false,
+            };
         }
         let res = {
             type: 'object',
