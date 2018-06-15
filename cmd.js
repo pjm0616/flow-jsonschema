@@ -13,8 +13,36 @@ function writeValidatorSrc(srcPath/*: string*/, dstPath/*: ?string*/=null) {
         dstPath = srcPath.replace(/\.js$/, '.validator.js');
     }
 
-    let src = gen.makeValidatorSrc(srcPath);
-    fs.writeFileSync(dstPath, src);
+    let origSrc/*: ?string*/;
+    if (fs.existsSync(dstPath)) {
+        // Temporarily remove the flow mark so that the gen-flow-files command does not complain
+        // about temporary type errors, since they will go away once flow-jsonschema regenerates the file.
+        origSrc = fs.readFileSync(dstPath, 'utf-8');
+        const flowMark = '//@flow';
+        if (origSrc.slice(0, flowMark.length) === flowMark) {
+            let tempSrc = origSrc.slice(flowMark.length);
+            fs.writeFileSync(dstPath, tempSrc);
+        }
+    }
+
+    let err/*: ?Error*/;
+    let newSrc/*: ?string*/;
+    try {
+        newSrc = gen.makeValidatorSrc(srcPath);
+    } catch (err_) {
+        err = err_;
+    }
+    if (err == null && newSrc != null) {
+        fs.writeFileSync(dstPath, newSrc);
+    } else if (err != null) {
+        if (origSrc != null) {
+            // Restore the original source if there was an error and flow mark was stripped earlier.
+            fs.writeFileSync(dstPath, origSrc);
+        }
+        throw err;
+    } else {
+        throw new Error();
+    }
 }
 
 function main() {
