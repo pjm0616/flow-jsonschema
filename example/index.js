@@ -82,9 +82,10 @@ let b4/*: Object*/ = {
 };
 
 // has an additional property b5.zz.
+// b5.tuple[0] is invalid
 let b5/*: Object*/ = {
     arr: [a, a],
-    tuple: ['a', 2, 2],
+    tuple: [null, 2, 2],
     c: 33,
     d: null,
     e: {
@@ -103,4 +104,8 @@ console.log(validator.checkB(b2)); // error
 console.log(validator.checkB(b3)); // error
 console.log(validator.checkB(b4)); // error
 console.log(validator.checkB(b5)); // error
-validator.assertB(b4); // throws
+try {
+    validator.assertB(b5, {allErrors: true}); // throws
+} catch (err) {
+    console.log(err);
+}

@@ -5,12 +5,16 @@
 
 const assert = require('assert');
 const Ajv = require('ajv');
-const ajv = new Ajv();
+const ajvDefault = new Ajv();
+const ajvAllErrors = new Ajv({allErrors: true});
 
 /*::
 export type A = $Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>;
 export type B = $Exact<{arr: Array<$Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>>, c: string | number, d: boolean | null, e: $Exact<{a: 1, b: string}> | $Exact<{a: 2, b: number}>, f: {[zz: string]: number | string}, tuple: [string, number, 1 | 2]}>;
 
+type ValidationOptions = {
+    allErrors?: boolean,
+};
 export type ValidationErrorDesc = {|
     keyword: string,
     dataPath: string,
@@ -33,10 +37,14 @@ class ValidationError extends Error {
 }
 
 let g_validators = {};
+let g_validatorsAllErrors = {};
 
 // Checks whether `val` is a valid A.
-function checkA(val/*: A*/)/*: boolean*/ {
-    let validator = g_validators["A"];
+function checkA(val/*: A*/, opts/*: ValidationOptions*/={})/*: boolean*/ {
+    const ajv = opts.allErrors ? ajvAllErrors : ajvDefault;
+    const validators = opts.allErrors ? g_validatorsAllErrors : g_validators;
+
+    let validator = validators["A"];
     if (validator == null) {
         let schema = {
             "type": "object",
@@ -107,7 +115,7 @@ function checkA(val/*: A*/)/*: boolean*/ {
             "additionalProperties": false
         };
         validator = ajv.compile(schema);
-        g_validators["A"] = validator;
+        validators["A"] = validator;
     }
     let ret/*: boolean*/ = validator(val);
     assert(typeof ret === 'boolean');
@@ -118,8 +126,8 @@ function checkA(val/*: A*/)/*: boolean*/ {
 
 // Checks whether `val` is a valid A.
 // @returns `val` as is if it's a valid A, throws if not.
-function assertA(val/*: A*/)/*: A*/ {
-    let ret = checkA(val);
+function assertA(val/*: A*/, opts/*: ValidationOptions*/={})/*: A*/ {
+    let ret = checkA(val, opts);
     assert(typeof ret === 'boolean');
     if (ret) {
         return val;
@@ -133,8 +141,11 @@ function assertA(val/*: A*/)/*: A*/ {
 };
 
 // Checks whether `val` is a valid B.
-function checkB(val/*: B*/)/*: boolean*/ {
-    let validator = g_validators["B"];
+function checkB(val/*: B*/, opts/*: ValidationOptions*/={})/*: boolean*/ {
+    const ajv = opts.allErrors ? ajvAllErrors : ajvDefault;
+    const validators = opts.allErrors ? g_validatorsAllErrors : g_validators;
+
+    let validator = validators["B"];
     if (validator == null) {
         let schema = {
             "type": "object",
@@ -327,7 +338,7 @@ function checkB(val/*: B*/)/*: boolean*/ {
             "additionalProperties": false
         };
         validator = ajv.compile(schema);
-        g_validators["B"] = validator;
+        validators["B"] = validator;
     }
     let ret/*: boolean*/ = validator(val);
     assert(typeof ret === 'boolean');
@@ -338,8 +349,8 @@ function checkB(val/*: B*/)/*: boolean*/ {
 
 // Checks whether `val` is a valid B.
 // @returns `val` as is if it's a valid B, throws if not.
-function assertB(val/*: B*/)/*: B*/ {
-    let ret = checkB(val);
+function assertB(val/*: B*/, opts/*: ValidationOptions*/={})/*: B*/ {
+    let ret = checkB(val, opts);
     assert(typeof ret === 'boolean');
     if (ret) {
         return val;
