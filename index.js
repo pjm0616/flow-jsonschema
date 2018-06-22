@@ -239,8 +239,8 @@ let g_validatorsAllErrors = {};
         let assertFuncName = 'assert' + name;
         src.push(`// Checks whether \`val\` is a valid ${name}.
 function ${checkFuncName}(val/*: ${name}*/, opts/*: ValidationOptions*/={})/*: boolean*/ {
-    const ajv = opts.allErrors ? ajvAllErrors : ajvDefault;
-    const validators = opts.allErrors ? g_validatorsAllErrors : g_validators;
+    const ajv = opts.allErrors !== true ? ajvDefault : ajvAllErrors;
+    const validators = opts.allErrors !== true ? g_validators : g_validatorsAllErrors;
 
     let validator = validators[${nameJson}];
     if (validator == null) {

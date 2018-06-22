@@ -41,8 +41,8 @@ let g_validatorsAllErrors = {};
 
 // Checks whether `val` is a valid A.
 function checkA(val/*: A*/, opts/*: ValidationOptions*/={})/*: boolean*/ {
-    const ajv = opts.allErrors ? ajvAllErrors : ajvDefault;
-    const validators = opts.allErrors ? g_validatorsAllErrors : g_validators;
+    const ajv = opts.allErrors !== true ? ajvDefault : ajvAllErrors;
+    const validators = opts.allErrors !== true ? g_validators : g_validatorsAllErrors;
 
     let validator = validators["A"];
     if (validator == null) {
@@ -142,8 +142,8 @@ function assertA(val/*: A*/, opts/*: ValidationOptions*/={})/*: A*/ {
 
 // Checks whether `val` is a valid B.
 function checkB(val/*: B*/, opts/*: ValidationOptions*/={})/*: boolean*/ {
-    const ajv = opts.allErrors ? ajvAllErrors : ajvDefault;
-    const validators = opts.allErrors ? g_validatorsAllErrors : g_validators;
+    const ajv = opts.allErrors !== true ? ajvDefault : ajvAllErrors;
+    const validators = opts.allErrors !== true ? g_validators : g_validatorsAllErrors;
 
     let validator = validators["B"];
     if (validator == null) {

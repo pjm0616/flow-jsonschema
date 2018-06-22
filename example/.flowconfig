@@ -5,7 +5,11 @@
 [libs]
 
 [lints]
+all=warn
+untyped-import=off
+unclear-type=off
 
 [options]
+include_warnings=true
 
 [strict]
