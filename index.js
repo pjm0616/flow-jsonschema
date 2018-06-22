@@ -198,11 +198,15 @@ function makeValidatorSrc(srcPath) {
 
 const assert = require('assert');
 const Ajv = require('ajv');
-const ajv = new Ajv();
+const ajvDefault = new Ajv();
+const ajvAllErrors = new Ajv({allErrors: true});
 
 /*::
 ${concatFlowDefsSrc}
 
+type ValidationOptions = {
+    allErrors?: boolean,
+};
 export type ValidationErrorDesc = {|
     keyword: string,
     dataPath: string,
@@ -225,6 +229,7 @@ class ValidationError extends Error {
 }
 
 let g_validators = {};
+let g_validatorsAllErrors = {};
 `);
 
     for (let name of typeNames) {
@@ -233,12 +238,15 @@ let g_validators = {};
         let checkFuncName = 'check' + name;
         let assertFuncName = 'assert' + name;
         src.push(`// Checks whether \`val\` is a valid ${name}.
-function ${checkFuncName}(val/*: ${name}*/)/*: boolean*/ {
-    let validator = g_validators[${nameJson}];
+function ${checkFuncName}(val/*: ${name}*/, opts/*: ValidationOptions*/={})/*: boolean*/ {
+    const ajv = opts.allErrors ? ajvAllErrors : ajvDefault;
+    const validators = opts.allErrors ? g_validatorsAllErrors : g_validators;
+
+    let validator = validators[${nameJson}];
     if (validator == null) {
         let schema = ${schemaJson.split('\n').map(line => '        ' + line).join('\n').slice(8)};
         validator = ajv.compile(schema);
-        g_validators[${nameJson}] = validator;
+        validators[${nameJson}] = validator;
     }
     let ret/*: boolean*/ = validator(val);
     assert(typeof ret === 'boolean');
@@ -249,8 +257,8 @@ function ${checkFuncName}(val/*: ${name}*/)/*: boolean*/ {
 
 // Checks whether \`val\` is a valid ${name}.
 // @returns \`val\` as is if it's a valid ${name}, throws if not.
-function ${assertFuncName}(val/*: ${name}*/)/*: ${name}*/ {
-    let ret = ${checkFuncName}(val);
+function ${assertFuncName}(val/*: ${name}*/, opts/*: ValidationOptions*/={})/*: ${name}*/ {
+    let ret = ${checkFuncName}(val, opts);
     assert(typeof ret === 'boolean');
     if (ret) {
         return val;
