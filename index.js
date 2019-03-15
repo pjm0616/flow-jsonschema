@@ -223,7 +223,17 @@ class ValidationError extends Error {
     errors: ValidationErrorDesc[];
     */
     constructor(typeName/*: string*/, errors/*: ValidationErrorDesc[]*/) {
-        super(errors.length > 0 ? (typeName + errors[0].dataPath + ': ' + errors[0].message) : '(no errors)');
+        let msg/*: string*/;
+        if (errors.length > 0) {
+            const err = errors[0];
+            msg = typeName + err.dataPath + ': ' + err.message;
+            if (err.params.additionalProperty) {
+                msg += ': ' + JSON.stringify(err.params.additionalProperty);
+            }
+        } else {
+            msg = '(no errors)';
+        }
+        super(msg);
         this.typeName = typeName;
         this.errors = errors;
     }
