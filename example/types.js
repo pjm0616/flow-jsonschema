@@ -29,4 +29,18 @@ export type B = {|
     f: {[zz:string]: number|string},
 |};
 
+export type {DoublyIndirectType2 as DoublyIndirectType3} from './imported_types';
+
+export type {
+    IA as IA_exported,
+} from './imported_types';
+
+import type {
+    IB as IB_local,
+} from './imported_types';
+
+export type {
+    IB_local as IB_exported,
+};
+
 */

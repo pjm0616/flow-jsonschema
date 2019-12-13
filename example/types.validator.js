@@ -10,8 +10,11 @@ const ajvDefault = new Ajv();
 const ajvAllErrors = new Ajv({allErrors: true});
 
 /*::
-export type A = $Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>;
-export type B = $Exact<{arr: Array<$Exact<{bool: boolean, num: number, numLit: 1 | 20, numNull: ?number, numOpt?: number, str: string, strLit: "a" | "bc"}>>, c: string | number, d: boolean | null, e: $Exact<{a: 1, b: string}> | $Exact<{a: 2, b: number}>, f: {[zz: string]: number | string}, tuple: [string, number, 1 | 2]}>;
+export type A = {|bool: boolean, num: number, numLit: (1 | 20), numNull: ?number, numOpt?: number, str: string, strLit: ("a" | "bc")|};
+export type B = {|arr: Array<{|bool: boolean, num: number, numLit: (1 | 20), numNull: ?number, numOpt?: number, str: string, strLit: ("a" | "bc")|}>, c: (string | number), d: (boolean | null), e: ({|a: 1, b: string|} | {|a: 2, b: number|}), f: {[zz: string]: (number | string)}, tuple: [string, number, (1 | 2)]|};
+export type DoublyIndirectType3 = "d";
+export type IA_exported = {|fdd: {[zz: string]: (number | string)}|};
+export type IB_exported = {|zf: 3|};
 
 type ValidationOptions = {
     allErrors?: boolean,
@@ -374,10 +377,161 @@ function assertB(val/*: B*/, opts/*: ValidationOptions*/={})/*: B*/ {
     }
 };
 
+// Checks whether `val` is a valid DoublyIndirectType3.
+function checkDoublyIndirectType3(val/*: DoublyIndirectType3*/, opts/*: ValidationOptions*/={})/*: boolean*/ {
+    const ajv = opts.allErrors !== true ? ajvDefault : ajvAllErrors;
+    const validators = opts.allErrors !== true ? g_validators : g_validatorsAllErrors;
+
+    let validator = validators["DoublyIndirectType3"];
+    if (validator == null) {
+        let schema = {
+            "type": "string",
+            "enum": [
+                "d"
+            ]
+        };
+        validator = ajv.compile(schema);
+        validators["DoublyIndirectType3"] = validator;
+    }
+    let ret/*: boolean*/ = validator(val);
+    assert(typeof ret === 'boolean');
+    let errors/*: ?Array<ValidationErrorDesc>*/ = (validator/*: any*/).errors;
+    (checkDoublyIndirectType3/*: any*/).errors = errors;
+    return ret;
+};
+
+// Checks whether `val` is a valid DoublyIndirectType3.
+// @returns `val` as is if it's a valid DoublyIndirectType3, throws if not.
+function assertDoublyIndirectType3(val/*: DoublyIndirectType3*/, opts/*: ValidationOptions*/={})/*: DoublyIndirectType3*/ {
+    let ret = checkDoublyIndirectType3(val, opts);
+    assert(typeof ret === 'boolean');
+    if (ret) {
+        return val;
+    } else {
+        let errors/*: ?Array<ValidationErrorDesc>*/ = (checkDoublyIndirectType3/*: any*/).errors;
+        if (errors == null || errors.length === 0) {
+            throw new Error('json validation failed');
+        }
+        throw new ValidationError("DoublyIndirectType3", errors);
+    }
+};
+
+// Checks whether `val` is a valid IA_exported.
+function checkIA_exported(val/*: IA_exported*/, opts/*: ValidationOptions*/={})/*: boolean*/ {
+    const ajv = opts.allErrors !== true ? ajvDefault : ajvAllErrors;
+    const validators = opts.allErrors !== true ? g_validators : g_validatorsAllErrors;
+
+    let validator = validators["IA_exported"];
+    if (validator == null) {
+        let schema = {
+            "type": "object",
+            "properties": {
+                "fdd": {
+                    "type": "object",
+                    "patternProperties": {
+                        ".*": {
+                            "anyOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "required": [
+                "fdd"
+            ],
+            "additionalProperties": false
+        };
+        validator = ajv.compile(schema);
+        validators["IA_exported"] = validator;
+    }
+    let ret/*: boolean*/ = validator(val);
+    assert(typeof ret === 'boolean');
+    let errors/*: ?Array<ValidationErrorDesc>*/ = (validator/*: any*/).errors;
+    (checkIA_exported/*: any*/).errors = errors;
+    return ret;
+};
+
+// Checks whether `val` is a valid IA_exported.
+// @returns `val` as is if it's a valid IA_exported, throws if not.
+function assertIA_exported(val/*: IA_exported*/, opts/*: ValidationOptions*/={})/*: IA_exported*/ {
+    let ret = checkIA_exported(val, opts);
+    assert(typeof ret === 'boolean');
+    if (ret) {
+        return val;
+    } else {
+        let errors/*: ?Array<ValidationErrorDesc>*/ = (checkIA_exported/*: any*/).errors;
+        if (errors == null || errors.length === 0) {
+            throw new Error('json validation failed');
+        }
+        throw new ValidationError("IA_exported", errors);
+    }
+};
+
+// Checks whether `val` is a valid IB_exported.
+function checkIB_exported(val/*: IB_exported*/, opts/*: ValidationOptions*/={})/*: boolean*/ {
+    const ajv = opts.allErrors !== true ? ajvDefault : ajvAllErrors;
+    const validators = opts.allErrors !== true ? g_validators : g_validatorsAllErrors;
+
+    let validator = validators["IB_exported"];
+    if (validator == null) {
+        let schema = {
+            "type": "object",
+            "properties": {
+                "zf": {
+                    "type": "number",
+                    "enum": [
+                        3
+                    ]
+                }
+            },
+            "required": [
+                "zf"
+            ],
+            "additionalProperties": false
+        };
+        validator = ajv.compile(schema);
+        validators["IB_exported"] = validator;
+    }
+    let ret/*: boolean*/ = validator(val);
+    assert(typeof ret === 'boolean');
+    let errors/*: ?Array<ValidationErrorDesc>*/ = (validator/*: any*/).errors;
+    (checkIB_exported/*: any*/).errors = errors;
+    return ret;
+};
+
+// Checks whether `val` is a valid IB_exported.
+// @returns `val` as is if it's a valid IB_exported, throws if not.
+function assertIB_exported(val/*: IB_exported*/, opts/*: ValidationOptions*/={})/*: IB_exported*/ {
+    let ret = checkIB_exported(val, opts);
+    assert(typeof ret === 'boolean');
+    if (ret) {
+        return val;
+    } else {
+        let errors/*: ?Array<ValidationErrorDesc>*/ = (checkIB_exported/*: any*/).errors;
+        if (errors == null || errors.length === 0) {
+            throw new Error('json validation failed');
+        }
+        throw new ValidationError("IB_exported", errors);
+    }
+};
+
 module.exports = {
     ValidationError,
     checkA,
     assertA,
     checkB,
     assertB,
+    checkDoublyIndirectType3,
+    assertDoublyIndirectType3,
+    checkIA_exported,
+    assertIA_exported,
+    checkIB_exported,
+    assertIB_exported,
 };
