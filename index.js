@@ -162,7 +162,7 @@ function makeSchemaFlow88(path) {
     let ast = flowParser.parse(typedefsrc);
     assert(ast.type === 'Program');
     if (ast.errors.length !== 0) {
-        throw new Error(`failed to parse type at ${path} ${line}:${col}: ${JSON.stringify(ast.errors)}`);
+        throw new Error(`failed to parse source ${path}: ${JSON.stringify(ast.errors)}`);
     }
 
     for (let child of ast.body) {
@@ -218,7 +218,7 @@ function makeSchemaFlow89(path) {
     let ast = flowParser.parse(typedefsrc);
     assert(ast.type === 'Program');
     if (ast.errors.length !== 0) {
-        throw new Error(`failed to parse type at ${path} ${line}:${col}: ${JSON.stringify(ast.errors)}`);
+        throw new Error(`failed to parse source ${path}: ${JSON.stringify(ast.errors)}`);
     }
 
     let localTypes = {};
