@@ -189,8 +189,18 @@ function makeSchemaFlow88(path) {
     return [jsonSchema, flowSource];
 }
 
+/*::
+type TypeDefnInfo = {|
+    // Flow type definition
+    // e.g.) `3` for the type declaration `type A = 3;`
+    src: string,
+    // Flow AST for `src`.
+    ast: any,
+|};
+*/
+
 // Returns flow type definition at the given position.
-function flowTypeAtPos(path, line, col) {
+function flowTypeAtPos(path, line, col)/*: TypeDefnInfo*/ {
     let output = child_process.execFileSync('flow', ['type-at-pos', '--quiet', '--json', '--expand-type-aliases', path, line, col], {encoding: 'utf-8'});
     let src = JSON.parse(output).type;
     let ast = flowParser.parse(src);
@@ -209,19 +219,8 @@ function flowTypeAtPos(path, line, col) {
     };
 }
 
-// For flow >=0.89
-function makeSchemaFlow89(path) {
-    let jsonSchema = {};
-    let flowSource = {};
-
-    let typedefsrc = fs.readFileSync(path, 'utf-8');
-    let ast = flowParser.parse(typedefsrc);
-    assert(ast.type === 'Program');
-    if (ast.errors.length !== 0) {
-        throw new Error(`failed to parse source ${path}: ${JSON.stringify(ast.errors)}`);
-    }
-
-    let localTypes = {};
+function searchLocalTypeDecls(ast)/*: {[typeName: string]: {defnLoc: {start: {line: number, column: number}}}}*/ {
+    const localTypes = {};
     for (let child of ast.body) {
         if (child.type === 'ImportDeclaration' && child.importKind === 'type') {
             let specifiers = child.specifiers;
@@ -241,11 +240,80 @@ function makeSchemaFlow89(path) {
             };
         }
     }
+    return localTypes;
+}
 
+function flowTypeByName(path, searchName, recDepth_=0)/*: TypeDefnInfo*/ {
+    if (recDepth_ > 5) {
+        throw new Error(`max recursion limit exceeded: ${recDepth_} (searching for ${searchName} in ${path})`);
+    }
+
+    let typedefsrc = fs.readFileSync(path, 'utf-8');
+    let ast = flowParser.parse(typedefsrc);
+    assert(ast.type === 'Program');
+    if (ast.errors.length !== 0) {
+        throw new Error(`failed to parse source ${path}: ${JSON.stringify(ast.errors)}`);
+    }
+
+    let localTypes = searchLocalTypeDecls(ast);
     for (let child of ast.body) {
         if (child.type === 'ExportNamedDeclaration' && child.exportKind === 'type') {
             let decl = child.declaration;
             if (decl != null && decl.type === 'TypeAlias' && decl.id.type === 'Identifier') {
+                // export type Type = ...;
+                let name = decl.id.name;
+                if (name === searchName) {
+                    return flowTypeAtPos(path, decl.id.loc.start.line, decl.id.loc.start.column + 1);
+                }
+            }
+
+            for (let specifier of child.specifiers) {
+                if (specifier.type !== 'ExportSpecifier') {
+                    continue;
+                }
+                assert(specifier.exported.type === 'Identifier');
+                const name = specifier.exported.name;
+                if (name !== searchName) {
+                    continue;
+                }
+                if (child.source != null) {
+                    // export type {Type} from '${child.source.value}';
+                    let childSrcPath = child_process.execFileSync('flow', ['find-module', '--quiet', child.source.value, path], {encoding: 'utf-8'}).trim();
+                    return flowTypeByName(childSrcPath, specifier.local.name, recDepth_ + 1);
+                } else {
+                    // export type {Type};
+                    const importInfo = localTypes[specifier.local.name];
+                    if (importInfo == null) {
+                        console.warn('Skipping type ' + name + ': not a type export');
+                        return null;
+                    }
+                    return flowTypeAtPos(path, importInfo.defnLoc.start.line, importInfo.defnLoc.start.column + 1);
+                }
+            }
+        }
+    }
+
+    throw new Error(`type ${searchName} cannot be found in ${path}`);
+}
+
+// For flow >=0.89
+function makeSchemaFlow89(path) {
+    let jsonSchema = {};
+    let flowSource = {};
+
+    let typedefsrc = fs.readFileSync(path, 'utf-8');
+    let ast = flowParser.parse(typedefsrc);
+    assert(ast.type === 'Program');
+    if (ast.errors.length !== 0) {
+        throw new Error(`failed to parse source ${path}: ${JSON.stringify(ast.errors)}`);
+    }
+
+    let localTypes = searchLocalTypeDecls(ast);
+    for (let child of ast.body) {
+        if (child.type === 'ExportNamedDeclaration' && child.exportKind === 'type') {
+            let decl = child.declaration;
+            if (decl != null && decl.type === 'TypeAlias' && decl.id.type === 'Identifier') {
+                // export type Type = ...;
                 let name = decl.id.name;
                 const res = flowTypeAtPos(path, decl.id.loc.start.line, decl.id.loc.start.column + 1);
                 const desc = res.ast;
@@ -268,12 +336,20 @@ function makeSchemaFlow89(path) {
                 }
                 assert(specifier.exported.type === 'Identifier');
                 const name = specifier.exported.name;
-                const importInfo = localTypes[specifier.local.name];
-                if (importInfo == null) {
-                    console.warn('Skipping type ' + name + ': not a type export');
-                    continue;
+                let res;
+                if (child.source != null) {
+                    // export type {Type} from '${child.source.value}';
+                    let childSrcPath = child_process.execFileSync('flow', ['find-module', '--quiet', child.source.value, path], {encoding: 'utf-8'}).trim();
+                    res = flowTypeByName(childSrcPath, specifier.local.name);
+                } else {
+                    // export type {Type};
+                    const importInfo = localTypes[specifier.local.name];
+                    if (importInfo == null) {
+                        console.warn('Skipping type ' + name + ': not a type export');
+                        continue;
+                    }
+                    res = flowTypeAtPos(path, importInfo.defnLoc.start.line, importInfo.defnLoc.start.column + 1);
                 }
-                const res = flowTypeAtPos(path, importInfo.defnLoc.start.line, importInfo.defnLoc.start.column + 1);
                 const desc = res.ast;
                 try {
                     let schema = parseDesc(desc);
