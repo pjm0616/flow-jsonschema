@@ -144,6 +144,9 @@ function parseDesc(desc) {
             anyOf: types,
         };
 
+    case 'AnyTypeAnnotation':
+        return {};
+
     default:
         throw new Error('unknown type ' + desc.type);
     }
