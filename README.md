@@ -21,7 +21,3 @@ If you don't want to generate validators for every types in the file, create a f
 //@flow
 export type {TypeA, TypeB} from './types';
 ```
-
-## Notes
-It exploits flow's gen-flow-files commands's current implementation, which inlines most of the nested types, to simplify implementation.
-Since the gen-flow-files command is experimental, this behavior can change in any time.

@@ -3,6 +3,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const child_process = require('child_process');
+const semver = require('semver');
 const flowParser = require('flow-parser');
 
 
@@ -152,13 +153,18 @@ function parseDesc(desc) {
     }
 }
 
-function makeSchema(path) {
+// For flow <0.88
+function makeSchemaFlow88(path) {
     let jsonSchema = {};
     let flowSource = {};
 
     let typedefsrc = child_process.execFileSync('flow', ['gen-flow-files', '--quiet', path], {encoding: 'utf-8'});
     let ast = flowParser.parse(typedefsrc);
     assert(ast.type === 'Program');
+    if (ast.errors.length !== 0) {
+        throw new Error(`failed to parse type at ${path} ${line}:${col}: ${JSON.stringify(ast.errors)}`);
+    }
+
     for (let child of ast.body) {
         if (child.type === 'ExportNamedDeclaration' && child.exportKind === 'type') {
             let decl = child.declaration;
@@ -183,6 +189,118 @@ function makeSchema(path) {
     return [jsonSchema, flowSource];
 }
 
+// Returns flow type definition at the given position.
+function flowTypeAtPos(path, line, col) {
+    let output = child_process.execFileSync('flow', ['type-at-pos', '--quiet', '--json', '--expand-type-aliases', path, line, col], {encoding: 'utf-8'});
+    let src = JSON.parse(output).type;
+    let ast = flowParser.parse(src);
+    assert(ast.type === 'Program');
+    if (ast.errors.length !== 0) {
+        throw new Error(`failed to parse type at ${path} ${line}:${col}: ${JSON.stringify(ast.errors)}`);
+    }
+
+    assert(ast.body.length === 1);
+    const t = ast.body[0];
+    assert(t.type === 'TypeAlias');
+    const typeDefnSrc = src.slice(t.right.range[0], t.right.range[1]);
+    return {
+        src: typeDefnSrc,
+        ast: t.right,
+    };
+}
+
+// For flow >=0.89
+function makeSchemaFlow89(path) {
+    let jsonSchema = {};
+    let flowSource = {};
+
+    let typedefsrc = fs.readFileSync(path, 'utf-8');
+    let ast = flowParser.parse(typedefsrc);
+    assert(ast.type === 'Program');
+    if (ast.errors.length !== 0) {
+        throw new Error(`failed to parse type at ${path} ${line}:${col}: ${JSON.stringify(ast.errors)}`);
+    }
+
+    let localTypes = {};
+    for (let child of ast.body) {
+        if (child.type === 'ImportDeclaration' && child.importKind === 'type') {
+            let specifiers = child.specifiers;
+            for (let specifier of specifiers) {
+                if (specifier.type !== 'ImportSpecifier') {
+                    continue;
+                }
+                assert(specifier.imported.type === 'Identifier');
+                assert(specifier.local.type === 'Identifier');
+                localTypes[specifier.local.name] = {
+                    defnLoc: specifier.imported.loc,
+                };
+            }
+        } else if (child.type === 'TypeAlias') {
+            localTypes[child.id.name] = {
+                defnLoc: child.id.loc,
+            };
+        }
+    }
+
+    for (let child of ast.body) {
+        if (child.type === 'ExportNamedDeclaration' && child.exportKind === 'type') {
+            let decl = child.declaration;
+            if (decl != null && decl.type === 'TypeAlias' && decl.id.type === 'Identifier') {
+                let name = decl.id.name;
+                const res = flowTypeAtPos(path, decl.id.loc.start.line, decl.id.loc.start.column + 1);
+                const desc = res.ast;
+                try {
+                    let schema = parseDesc(desc);
+                    jsonSchema[name] = schema;
+                    flowSource[name] = `export type ${name} = ${res.src};`;
+                } catch (exc) {
+                    if (exc instanceof UnsupportedTypeError) {
+                        console.warn('Skipping type ' + name + ': ' + exc.message);
+                    } else {
+                        throw exc;
+                    }
+                }
+            }
+
+            for (let specifier of child.specifiers) {
+                if (specifier.type !== 'ExportSpecifier') {
+                    continue;
+                }
+                assert(specifier.exported.type === 'Identifier');
+                const name = specifier.exported.name;
+                const importInfo = localTypes[specifier.local.name];
+                if (importInfo == null) {
+                    console.warn('Skipping type ' + name + ': not a type export');
+                    continue;
+                }
+                const res = flowTypeAtPos(path, importInfo.defnLoc.start.line, importInfo.defnLoc.start.column + 1);
+                const desc = res.ast;
+                try {
+                    let schema = parseDesc(desc);
+                    jsonSchema[name] = schema;
+                    flowSource[name] = `export type ${name} = ${res.src};`;
+                } catch (exc) {
+                    if (exc instanceof UnsupportedTypeError) {
+                        console.warn('Skipping type ' + name + ': ' + exc.message);
+                    } else {
+                        throw exc;
+                    }
+                }
+            }
+        }
+    }
+
+    return [jsonSchema, flowSource];
+}
+
+function makeSchema(path) {
+    let output = child_process.execFileSync('flow', ['version', '--', '--json'], {encoding: 'utf-8'});
+    let ver = JSON.parse(output).semver;
+    if (semver.lt(ver, '0.89.0')) {
+        return makeSchemaFlow88(path);
+    }
+    return makeSchemaFlow89(path);
+}
 
 function makeValidatorSrc(srcPath) {
     let [types, srcs] = makeSchema(srcPath);
