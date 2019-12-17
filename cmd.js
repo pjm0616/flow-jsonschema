@@ -7,7 +7,7 @@ const fs = require('fs');
 const gen = require('./index');
 
 
-function writeValidatorSrc(srcPath/*: string*/, dstPath/*: ?string*/=null) {
+async function writeValidatorSrc(srcPath/*: string*/, dstPath/*: ?string*/=null) {
     if (dstPath == null) {
         assert(/\.js$/.test(srcPath));
         dstPath = srcPath.replace(/\.js$/, '.validator.js');
@@ -28,7 +28,7 @@ function writeValidatorSrc(srcPath/*: string*/, dstPath/*: ?string*/=null) {
     let err/*: ?Error*/;
     let newSrc/*: ?string*/;
     try {
-        newSrc = gen.makeValidatorSrc(srcPath);
+        newSrc = await gen.makeValidatorSrc(srcPath);
     } catch (err_) {
         err = err_;
     }
@@ -45,7 +45,7 @@ function writeValidatorSrc(srcPath/*: string*/, dstPath/*: ?string*/=null) {
     }
 }
 
-function main() {
+async function main() {
     switch (process.argv.length) {
     case 3: {
         let srcPath = process.argv[2];
@@ -63,4 +63,8 @@ function main() {
     }
     }
 }
-main();
+
+main().catch(err => {
+    console.error(err);
+    process.exit(1);
+});

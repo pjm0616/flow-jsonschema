@@ -2,13 +2,39 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const util = require('util');
 const child_process = require('child_process');
+const async = require('async');
 const semver = require('semver');
 const flowParser = require('flow-parser');
 
 
 class UnsupportedTypeError extends Error {
 }
+
+const ABANDON = Symbol();
+function sleep/*::<T>*/(msec/*: number*/, val/*: T*/)/*: Promise<T>*/ {
+    let resolve_;
+    let timerId;
+    let promise = new Promise((resolve, _) => {
+        timerId = setTimeout(() => {
+            timerId = null;
+            resolve(val);
+        }, msec);
+        resolve_ = resolve;
+    });
+    (promise/*: any*/).cancel = (resolveWith/*: T*/) => {
+        if (timerId != null) {
+            clearTimeout(timerId);
+            timerId = null;
+            if (resolveWith !== ABANDON) {
+                resolve_(resolveWith);
+            }
+        }
+    };
+    return promise;
+};
+sleep.ABANDON = ABANDON;
 
 function parseLiteral(desc) {
     switch (desc.type) {
@@ -153,12 +179,121 @@ function parseDesc(desc) {
     }
 }
 
-// For flow <0.88
-function makeSchemaFlow88(path) {
+const FLOW_PATH = 'flow';
+
+// Invokes a flow command
+async function callFlow(args/*: string[]*/)/*: Promise<string>*/ {
+    return new Promise((resolve, reject) => {
+        child_process.execFile(FLOW_PATH, args, {
+            encoding: 'utf-8',
+        }, (err, stdout) => {
+            err != null ? reject(err) : resolve(stdout)
+        });
+    });
+}
+
+// Invokes a flow command, automatically retrying it if needed.
+// Some flow commands tend to hang very frequently, so this function calls flow multiple times in the hope that some of them will succeed earlier.
+async function callFlowAutoRetry(args/*: string[]*/)/*: Promise<string>*/ {
+    const CALL_TIMEOUT = 1000;
+    const MAX_RETRIES = 20;
+    const RETRY_INTV = 100;
+
+    let childs = [];
+    let promises = [];
+    // launches a new flow instance and adds it to `childs` and `promises`.
+    // it automatically removes itself from the arrays when it exits.
+    function launch() {
+        let idx = childs.length;
+
+        let child;
+        const p = new Promise((resolve, reject) => {
+            child = child_process.execFile(FLOW_PATH, args, {
+                encoding: 'utf-8',
+                timeout: CALL_TIMEOUT,
+            }, (err, stdout) => {
+                childs[idx] = null;
+                promises[idx] = null;
+                err != null ? reject(err) : resolve(stdout)
+            });
+        });
+
+        childs[idx] = child;
+        promises[idx] = p;
+    }
+    // kills all running flow instances started by `launch()`.
+    function killall() {
+        for (const child of childs) {
+            if (child != null && !child.killed) {
+                child.kill();
+            }
+        }
+    }
+
+    try {
+        // Automatically retry the command if it times out, or any of the previous instances have been exited.
+        for (let i = 0; i < MAX_RETRIES; i++) {
+            try {
+                launch();
+                const d = RETRY_INTV * (i + 1);
+                const timer = sleep(d);
+                try {
+                    const avail = promises.filter(p => p != null);
+                    assert(avail.length > 0);
+                    const out = await Promise.race([
+                        ...avail,
+                        timer.then(() => {
+                            const err = new Error();
+                            err.errno = 'ETIMEDOUT';
+                            throw err;
+                        }),
+                    ]);
+                    return out;
+                } finally {
+                    timer.cancel(sleep.ABANDON);
+                }
+            } catch (err) {
+                if (err.killed || err.errno === 'ETIMEDOUT') {
+                    continue;
+                }
+                throw err;
+            }
+        }
+
+        // wait for the running instances.
+        while (true) {
+            const avail = promises.filter(p => p != null);
+            if (avail.length === 0) {
+                break;
+            }
+            try {
+                return await Promise.race(avail);
+            } catch (err) {
+                if (err.killed || err.errno === 'ETIMEDOUT') {
+                    // ignore timed out processes.
+                    // note that exited process will automatically remove itself from the array.
+                    continue;
+                }
+                throw err;
+            }
+        }
+
+        throw new Error(`callFlow: max retry count exceeded while executing flow ${JSON.stringify(args)}`);
+    } finally {
+        try {
+            killall();
+        } catch (err) {
+            console.error(err);
+        }
+    }
+}
+
+// For flow <0.89
+async function makeSchemaFlow88(path) {
     let jsonSchema = {};
     let flowSource = {};
 
-    let typedefsrc = child_process.execFileSync('flow', ['gen-flow-files', '--quiet', path], {encoding: 'utf-8'});
+    let typedefsrc = await callFlow(['gen-flow-files', '--quiet', path]);
     let ast = flowParser.parse(typedefsrc);
     assert(ast.type === 'Program');
     if (ast.errors.length !== 0) {
@@ -200,8 +335,8 @@ type TypeDefnInfo = {|
 */
 
 // Returns flow type definition at the given position.
-function flowTypeAtPos(path, line, col)/*: TypeDefnInfo*/ {
-    let output = child_process.execFileSync('flow', ['type-at-pos', '--quiet', '--json', '--expand-type-aliases', path, line, col], {encoding: 'utf-8'});
+async function flowTypeAtPos(path, line, col)/*: Promise<TypeDefnInfo>*/ {
+    let output = await callFlowAutoRetry(['type-at-pos', '--quiet', '--json', '--expand-type-aliases', path, line, col]);
     let src = JSON.parse(output).type;
     let ast = flowParser.parse(src);
     assert(ast.type === 'Program');
@@ -243,7 +378,7 @@ function searchLocalTypeDecls(ast)/*: {[typeName: string]: {defnLoc: {start: {li
     return localTypes;
 }
 
-function flowTypeByName(path, searchName, recDepth_=0)/*: TypeDefnInfo*/ {
+async function flowTypeByName(path, searchName, recDepth_=0)/*: Promise<TypeDefnInfo>*/ {
     if (recDepth_ > 5) {
         throw new Error(`max recursion limit exceeded: ${recDepth_} (searching for ${searchName} in ${path})`);
     }
@@ -278,7 +413,7 @@ function flowTypeByName(path, searchName, recDepth_=0)/*: TypeDefnInfo*/ {
                 }
                 if (child.source != null) {
                     // export type {Type} from '${child.source.value}';
-                    let childSrcPath = child_process.execFileSync('flow', ['find-module', '--quiet', child.source.value, path], {encoding: 'utf-8'}).trim();
+                    let childSrcPath = (await callFlowAutoRetry(['find-module', '--quiet', child.source.value, path])).trim();
                     return flowTypeByName(childSrcPath, specifier.local.name, recDepth_ + 1);
                 } else {
                     // export type {Type};
@@ -297,9 +432,58 @@ function flowTypeByName(path, searchName, recDepth_=0)/*: TypeDefnInfo*/ {
 }
 
 // For flow >=0.89
-function makeSchemaFlow89(path) {
+async function makeSchemaFlow89(path) {
     let jsonSchema = {};
     let flowSource = {};
+
+    const processTypeAlias = async function(decl) {
+        // export type Type = ...;
+        const name = decl.id.name;
+        const res = await flowTypeAtPos(path, decl.id.loc.start.line, decl.id.loc.start.column + 1);
+        const desc = res.ast;
+        try {
+            const schema = parseDesc(desc);
+            jsonSchema[name] = schema;
+            flowSource[name] = `export type ${name} = ${res.src};`;
+        } catch (exc) {
+            if (exc instanceof UnsupportedTypeError) {
+                console.warn('Skipping type ' + name + ': ' + exc.message);
+            } else {
+                throw exc;
+            }
+        }
+    }
+
+    const processExportSpecifier = async function(child, specifier) {
+        assert(specifier.exported.type === 'Identifier');
+        const name = specifier.exported.name;
+        let res;
+        if (child.source != null) {
+            // export type {Type} from '${child.source.value}';
+            let childSrcPath = (await callFlowAutoRetry(['find-module', '--quiet', child.source.value, path])).trim();
+            res = await flowTypeByName(childSrcPath, specifier.local.name);
+        } else {
+            // export type {Type};
+            const importInfo = localTypes[specifier.local.name];
+            if (importInfo == null) {
+                console.warn('Skipping type ' + name + ': not a type export');
+                return;
+            }
+            res = await flowTypeAtPos(path, importInfo.defnLoc.start.line, importInfo.defnLoc.start.column + 1);
+        }
+        const desc = res.ast;
+        try {
+            let schema = parseDesc(desc);
+            jsonSchema[name] = schema;
+            flowSource[name] = `export type ${name} = ${res.src};`;
+        } catch (exc) {
+            if (exc instanceof UnsupportedTypeError) {
+                console.warn('Skipping type ' + name + ': ' + exc.message);
+            } else {
+                throw exc;
+            }
+        }
+    }
 
     let typedefsrc = fs.readFileSync(path, 'utf-8');
     let ast = flowParser.parse(typedefsrc);
@@ -309,77 +493,56 @@ function makeSchemaFlow89(path) {
     }
 
     let localTypes = searchLocalTypeDecls(ast);
+    const jobs = [];
     for (let child of ast.body) {
         if (child.type === 'ExportNamedDeclaration' && child.exportKind === 'type') {
             let decl = child.declaration;
             if (decl != null && decl.type === 'TypeAlias' && decl.id.type === 'Identifier') {
-                // export type Type = ...;
-                let name = decl.id.name;
-                const res = flowTypeAtPos(path, decl.id.loc.start.line, decl.id.loc.start.column + 1);
-                const desc = res.ast;
-                try {
-                    let schema = parseDesc(desc);
-                    jsonSchema[name] = schema;
-                    flowSource[name] = `export type ${name} = ${res.src};`;
-                } catch (exc) {
-                    if (exc instanceof UnsupportedTypeError) {
-                        console.warn('Skipping type ' + name + ': ' + exc.message);
-                    } else {
-                        throw exc;
-                    }
-                }
+                jobs.push(processTypeAlias.bind(null, decl));
             }
 
             for (let specifier of child.specifiers) {
                 if (specifier.type !== 'ExportSpecifier') {
                     continue;
                 }
-                assert(specifier.exported.type === 'Identifier');
-                const name = specifier.exported.name;
-                let res;
-                if (child.source != null) {
-                    // export type {Type} from '${child.source.value}';
-                    let childSrcPath = child_process.execFileSync('flow', ['find-module', '--quiet', child.source.value, path], {encoding: 'utf-8'}).trim();
-                    res = flowTypeByName(childSrcPath, specifier.local.name);
-                } else {
-                    // export type {Type};
-                    const importInfo = localTypes[specifier.local.name];
-                    if (importInfo == null) {
-                        console.warn('Skipping type ' + name + ': not a type export');
-                        continue;
-                    }
-                    res = flowTypeAtPos(path, importInfo.defnLoc.start.line, importInfo.defnLoc.start.column + 1);
-                }
-                const desc = res.ast;
-                try {
-                    let schema = parseDesc(desc);
-                    jsonSchema[name] = schema;
-                    flowSource[name] = `export type ${name} = ${res.src};`;
-                } catch (exc) {
-                    if (exc instanceof UnsupportedTypeError) {
-                        console.warn('Skipping type ' + name + ': ' + exc.message);
-                    } else {
-                        throw exc;
-                    }
-                }
+                jobs.push(processExportSpecifier.bind(null, child, specifier));
             }
         }
     }
+    await async.eachLimit(jobs, 3, async (fn) => fn());
 
     return [jsonSchema, flowSource];
 }
 
-function makeSchema(path) {
-    let output = child_process.execFileSync('flow', ['version', '--', '--json'], {encoding: 'utf-8'});
+async function flowVersionGte89() {
+    let output = await callFlow(['version', '--', '--json']);
     let ver = JSON.parse(output).semver;
-    if (semver.lt(ver, '0.89.0')) {
+    return semver.gte(ver, '0.89.0');
+}
+
+async function makeSchema(path) {
+    let output = await callFlow(['version', '--', '--json']);
+    let ver = JSON.parse(output).semver;
+
+    console.warn(`Processing ${path}...`);
+    const t = sleep(1000);
+    try {
+        t.then(() => {
+            console.warn(`${path}: Waiting for flow to be ready...`);
+        });
+        await callFlow(['status', '--quiet']);
+    } finally {
+        t.cancel(sleep.ABANDON);
+    }
+
+    if (!(await flowVersionGte89())) {
         return makeSchemaFlow88(path);
     }
     return makeSchemaFlow89(path);
 }
 
-function makeValidatorSrc(srcPath) {
-    let [types, srcs] = makeSchema(srcPath);
+async function makeValidatorSrc(srcPath) {
+    let [types, srcs] = await makeSchema(srcPath);
     let typeNames = Object.keys(types).sort();
     if (typeNames.length === 0) {
         throw new Error('no types to process');
@@ -496,4 +659,5 @@ function ${assertFuncName}(val/*: ${name}*/, opts/*: ValidationOptions*/={})/*: 
 module.exports = {
     makeSchema,
     makeValidatorSrc,
+    flowVersionGte89,
 };
