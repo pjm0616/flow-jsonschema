@@ -14,7 +14,7 @@ async function writeValidatorSrc(srcPath/*: string*/, dstPath/*: ?string*/=null)
     }
 
     let origSrc/*: ?string*/;
-    if (fs.existsSync(dstPath)) {
+    if (!(await gen.flowVersionGte89()) && fs.existsSync(dstPath)) {
         // Temporarily remove the flow mark so that the gen-flow-files command does not complain
         // about temporary type errors, since they will go away once flow-jsonschema regenerates the file.
         origSrc = fs.readFileSync(dstPath, 'utf-8');
