@@ -521,9 +521,6 @@ async function flowVersionGte89() {
 }
 
 async function makeSchema(path) {
-    let output = await callFlow(['version', '--', '--json']);
-    let ver = JSON.parse(output).semver;
-
     console.warn(`Processing ${path}...`);
     const t = sleep(1000);
     try {
