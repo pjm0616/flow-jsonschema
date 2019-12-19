@@ -527,7 +527,15 @@ async function makeSchema(path) {
         t.then(() => {
             console.warn(`${path}: Waiting for flow to be ready...`);
         });
-        await callFlow(['status', '--quiet']);
+        try {
+            await callFlow(['status', '--quiet']);
+        } catch (err) {
+            if (err.code === 2) {
+                // `flow status` exited successfully but there were errors in the code.
+            } else {
+                throw err;
+            }
+        }
     } finally {
         t.cancel(sleep.ABANDON);
     }
